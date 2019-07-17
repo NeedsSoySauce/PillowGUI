@@ -1,13 +1,41 @@
 from PIL import Image, ImageEnhance, ImageTk
-from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale
+from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END
 from tkinter.filedialog import askopenfilenames, askdirectory
+import modifiers
+from os import path
+from glob import glob
+from widgets import FilePane, SliderDialog
+
+# https://pillow.readthedocs.io/en/5.1.x/handbook/image-file-formats.html#fully-supported-formats
+SUPPORTED_FILE_EXTENSIONS = (
+                             'bmp', 'dib', 
+                             'eps', 'epsf', 'epsi',
+                             'gif', 
+                             'icns', 
+                             'ico', 
+                             'im', 
+                             'jpg', 'jpeg', 'jpe', 'jif', 'jfif', 'jfi',
+                             'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2',
+                             'msp',
+                             'pcx',
+                             'png',
+                             'pbm', 'pgm', 'ppm', 'pnm',
+                             '.sgi',
+                             'tiff', 'tif',
+                             'webp',
+                             'xbm'
+                             )
 
 class ImageBatch:
     def __init__(self):
-        self.filenames = ()
-        self.actions = [] # What actions to take in the order they should be done
-        self.save_dest = "" # If None we overwrite the original images
+        self.filenames = []
+        self.modifiers = [] # What modifiers to apply in the order they should be applied
+        self.confirmed_mod_count = 0 # Records the number of confirmed modifiers
+        self.save_dest = "" # If None we overwrite the original images (TBD)
+        self.color = 1.0
+        self.contrast = 1.0
         self.brightness = 1.0
+        self.sharpness = 1.0
 
     def select_files(self):
         self.filenames = askopenfilenames()
@@ -16,69 +44,74 @@ class ImageBatch:
 
     def select_folders(self):
         # askdirectory only allows one directory to be chosen
-        self.filenames = askdirectory()
+        dir_ = askdirectory()
+        self.filenames = []
+
+        # From https://stackoverflow.com/a/40755802/11628429
+        for ext in SUPPORTED_FILE_EXTENSIONS:
+            self.filenames += glob(dir_ + "/**/*." + ext, recursive=True)
 
     def select_save_dest(self):
         self.save_dest = askdirectory()
 
     def get_processed_image(self, filename):
         im = Image.open(filename)
-        enhancement = ImageEnhance.Brightness(im)
-        enhanced_im = enhancement.enhance(self.brightness)
-        return enhanced_im
+
+        for modifier in self.modifiers:
+            im = modifier.apply(im)
+
+        return im
 
     def process_all(self):
         for filename in self.filenames:
             enhanced_im = self.get_processed_image(filename)
             enhanced_im.save('output.png')
 
+    def confirm_modifier(self):
+        self.confirmed_mod_count += 1
+
+    def cancel_modifier(self):
+        try:
+            del self.modifiers[self.confirmed_mod_count]
+        except IndexError:
+            pass
+
+    def add_modifier(self, modifier):
+        try:
+            self.modifiers[self.confirmed_mod_count] = modifier
+        except IndexError:
+            self.modifiers.append(modifier)
+
+    def add_color_modifier(self):
+        self.add_modifier(modifiers.ColorModifier(self.color))
+
+    def add_contrast_modifier(self):
+        self.add_modifier(modifiers.ContrastModifier(self.contrast))
+
+    def add_brightness_modifier(self):
+        self.add_modifier(modifiers.BrightnessModifier(self.brightness))
+
+    def add_sharpness_modifier(self):
+        self.add_modifier(modifiers.SharpnessModifier(self.sharpness))
+
+    def set_color(self, value):
+        self.color = float(value)
+        self.add_color_modifier()
+
+    def set_contrast(self, value):
+        self.contrast = float(value)
+        self.add_contrast_modifier()
+
     def set_brightness(self, value):
-        self.brightness = float(value) / 100
-        if self.brightness and 'brightness' not in self.actions:
-            self.actions.append('brightness')
-        else:
-            try:
-                self.actions.remove('brightness')
-            except ValueError:
-                pass
+        self.brightness = float(value)
+        self.add_brightness_modifier()
 
-    def get_tk_image(self, index=0):
-        return ImageTk.PhotoImage(self.get_processed_image(self.filenames[index]))
+    def set_sharpness(self, value):
+        self.sharpness = float(value)
+        self.add_sharpness_modifier()
 
-class SliderDialog:
-    def __init__(self, title="Slider Dialog", init_val=0, min_val=-1, max_val=1, default_val=0, callbacks=list()):
-        self.window = Toplevel()
-        self.window.title(title)
-        self.init_val = init_val
-        self.default_val = default_val
-        self.callbacks = callbacks
-
-        self.scale = Scale(self.window, orient='horizontal', from_=min_val, to=max_val, command=self.on_change)
-        self.scale.set(init_val)
-        self.scale.grid(row=0, column=0, sticky='nesw')
-
-        self.cancel_button = Button(self.window, text='Cancel', command=self.cancel)
-        self.cancel_button.grid(row=1, column=0)
-
-        self.reset_button = Button(self.window, text='Reset', command=self.reset)
-        self.reset_button.grid(row=1, column=1)
-
-        self.confirm_button = Button(self.window, text='Confirm', command=self.confirm)
-        self.confirm_button.grid(row=1, column=2)
-
-    def on_change(self, value):
-        for callback in self.callbacks:
-            callback(value)
-
-    def cancel(self):
-        self.on_change(self.init_val)
-        self.window.destroy()
-
-    def reset(self):
-        self.scale.set(self.default_val)
-
-    def confirm(self):
-        self.window.destroy()
+    def get_tk_image(self, filename):
+        return ImageTk.PhotoImage(self.get_processed_image(filename))
 
 class GUI:
     def __init__(self):
@@ -86,8 +119,8 @@ class GUI:
         self.root = Tk()
         self.root.title("Batch Image Processor")
         self.root.geometry("800x600")
-        self.filename_index = 0
         self.files_selected = False
+        self.preview_filename = ""
 
         self.batch = ImageBatch()
 
@@ -104,10 +137,10 @@ class GUI:
         self.menubar.add_cascade(label="File", menu=self.filemenu)
 
         self.adjustmentsmenu = Menu(self.menubar, tearoff=0)
-        self.adjustmentsmenu.add_command(label="Color", command=hello)
-        self.adjustmentsmenu.add_command(label="Contrast", command=hello)
+        self.adjustmentsmenu.add_command(label="Color", command=self.adjust_color)
+        self.adjustmentsmenu.add_command(label="Contrast", command=self.adjust_contrast)
         self.adjustmentsmenu.add_command(label="Brightness", command=self.adjust_brightness)
-        self.adjustmentsmenu.add_command(label="Sharpness", command=hello)
+        self.adjustmentsmenu.add_command(label="Sharpness", command=self.adjust_sharpness)
         self.menubar.add_cascade(label="Adjustments", menu=self.adjustmentsmenu)
 
         # effectsmenu = Menu(menubar, tearoff=0)
@@ -142,6 +175,8 @@ class GUI:
         self.sbarV.grid(row=0, column=1, sticky="ns")
         self.sbarH.grid(row=1, column=0, sticky="ew")
 
+        self.filepane = FilePane(self.root, on_selection=[self.set_preview])
+
         self.disable_editing()
 
         self.root.mainloop()
@@ -156,18 +191,20 @@ class GUI:
 
     def select_files(self):
         self.batch.select_files()
-        self.update_preview()
 
         if self.batch.filenames:
+            self.filepane.set_items(self.batch.filenames)
+            self.update_preview()
             self.enable_editing()
         else:
             self.disable_editing()
 
     def select_folders(self):
         self.batch.select_folders()
-        self.update_preview()
 
         if self.batch.filenames:
+            self.filepane.set_items(self.batch.filenames)
+            self.update_preview()
             self.enable_editing()
         else:
             self.disable_editing()
@@ -176,16 +213,40 @@ class GUI:
         self.batch.select_save_dest()
         self.update_preview()
 
+    def set_preview(self, filename):
+        self.preview_filename = filename
+        self.update_preview()
+
     def update_preview(self, *args, **kwargs):
-        self.image = self.batch.get_tk_image(self.filename_index)
+        self.image = self.batch.get_tk_image(self.preview_filename)
         self.canvas.itemconfig(self.imagesprite, image=self.image)
         image_size = self.image.width(), self.image.height()
         self.canvas.configure(width=image_size[0], height=image_size[1])
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+    def adjust_color(self):
+        slider = SliderDialog('Adjust Color', self.batch.color, 0, 2.0, 1.0, resolution=0.01)
+        slider.on_change = [self.batch.set_color, self.update_preview]
+        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_confirm = [self.batch.confirm_modifier]
+
+    def adjust_contrast(self):
+        slider = SliderDialog('Adjust Contrast', self.batch.contrast, 0, 2.0, 1.0, resolution=0.01)
+        slider.on_change = [self.batch.set_contrast, self.update_preview]
+        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_confirm = [self.batch.confirm_modifier]
+
     def adjust_brightness(self):
-        dialog = SliderDialog('Adjust Brightness', self.batch.brightness * 100, 0, 200, 100)
-        dialog.callbacks = [self.batch.set_brightness, self.update_preview]
+        slider = SliderDialog('Adjust Brightness', self.batch.brightness, 0, 2.0, 1.0, resolution=0.01)
+        slider.on_change = [self.batch.set_brightness, self.update_preview]
+        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_confirm = [self.batch.confirm_modifier]
+
+    def adjust_sharpness(self):
+        slider = SliderDialog('Adjust Sharpness', self.batch.sharpness, 0, 2.0, 1.0, resolution=0.01)
+        slider.on_change = [self.batch.set_sharpness, self.update_preview]
+        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_confirm = [self.batch.confirm_modifier]
 
 
 
