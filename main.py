@@ -50,14 +50,17 @@ class ImageBatch:
     def select_folders(self):
         # askdirectory only allows one directory to be chosen
         dir_ = askdirectory()
-        self.filenames = []
+        if dir_:
+            self.filenames = []
 
-        # From https://stackoverflow.com/a/40755802/11628429
-        for ext in SUPPORTED_FILE_EXTENSIONS:
-            self.filenames += glob(dir_ + "/**/*." + ext, recursive=True)
+            # From https://stackoverflow.com/a/40755802/11628429
+            for ext in SUPPORTED_FILE_EXTENSIONS:
+                self.filenames += glob(dir_ + "/**/*." + ext, recursive=True)
 
     def select_save_dest(self):
-        self.save_dest = askdirectory()
+        dir_ = askdirectory()
+        if dir_:
+            self.save_dest = dir_
 
     def get_processed_image(self, filename):
         im = Image.open(filename)
@@ -69,8 +72,9 @@ class ImageBatch:
 
     def process_all(self):
         for filename in self.filenames:
-            enhanced_im = self.get_processed_image(filename)
-            enhanced_im.save('output.png')
+            processed_im = self.get_processed_image(filename)
+            outfile = f'{self.save_dest}/{path.split(filename)[1]}'
+            processed_im.save(outfile)
 
     def confirm_modifier(self):
         self.confirmed_mod_count += 1

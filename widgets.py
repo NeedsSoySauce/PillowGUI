@@ -23,7 +23,7 @@ class FilePane:
         self.window.config(menu=self.menubar)
 
         self.scrollbar = Scrollbar(self.window, orient='vertical')
-        self.listbox = Listbox(self.window, yscrollcommand=self.scrollbar.set)
+        self.listbox = Listbox(self.window, yscrollcommand=self.scrollbar.set, exportselection=False)
         self.set_items(items)
         self.scrollbar.config(command=self.listbox.yview)
         self.scrollbar.pack(side='right', fill='y')
