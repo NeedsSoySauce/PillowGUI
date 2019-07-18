@@ -255,25 +255,25 @@ class GUI:
         dialog.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_color(self):
-        slider = SliderDialog(self.root, 'Adjust Color', self.batch.color, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Color', self.batch.color, 0, 10.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_color, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_contrast(self):
-        slider = SliderDialog(self.root, 'Adjust Contrast', self.batch.contrast, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Contrast', self.batch.contrast, 0, 10.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_contrast, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_brightness(self):
-        slider = SliderDialog(self.root, 'Adjust Brightness', self.batch.brightness, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Brightness', self.batch.brightness, 0, 10.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_brightness, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_sharpness(self):
-        slider = SliderDialog(self.root, 'Adjust Sharpness', self.batch.sharpness, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Sharpness', self.batch.sharpness, -10.0, 10.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_sharpness, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]

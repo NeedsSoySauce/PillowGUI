@@ -55,20 +55,21 @@ class ResizeModifier(ImageModifier):
 
     def apply(self, image):
         im_width, im_height = image.width, image.height
+        width, height = self.width, self.height
 
         if isinstance(self.width, float) and isinstance(self.height, float):
-            self.width = round(self.width * im_width)
-            self.height = round(self.height * im_height)
+            width = round(width * im_width)
+            height = round(height * im_height)
 
         elif self.maintain_aspect_ratio:
             if self.primary_dimension == 'width':
                 ratio = im_height / im_width
-                self.height = round(self.width * ratio)
+                height = round(width * ratio)
             else:
                 ratio = im_width / im_height
-                self.width = round(self.height * ratio)
+                width = round(height * ratio)
 
-        return image.resize((self.width, self.height))
+        return image.resize((width, height))
 
 class CropModifier(ImageModifier):
     def __init__(self, width, height, maintain_aspect_ratio, primary_dimension='width', anchor='Top'):
@@ -85,8 +86,6 @@ class CropModifier(ImageModifier):
     def apply(self, image):
         im_width, im_height = image.width, image.height
         width, height = self.width, self.height
-
-        # If the image is smaller than one of the dimensions we're trying to crop, we leave that dimension alone
 
         if isinstance(self.width, float) and isinstance(self.height, float):
             width = round(width * im_width)
