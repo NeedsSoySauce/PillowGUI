@@ -62,10 +62,10 @@ class ResizeModifier(ImageModifier):
 
         elif self.maintain_aspect_ratio:
             if self.primary_dimension == 'width':
-                ratio = round(im_height / im_width)
-                self.height = self.width * ratio
+                ratio = im_height / im_width
+                self.height = round(self.width * ratio)
             else:
-                ratio = round(im_width / im_height)
-                self.width = self.height * ratio
+                ratio = im_width / im_height
+                self.width = round(self.height * ratio)
 
         return image.resize((self.width, self.height))

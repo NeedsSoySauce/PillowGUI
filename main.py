@@ -90,7 +90,7 @@ class ImageBatch:
         self.im_width = width
         self.im_height = height
         self.maintain_aspect_ratio = maintain_aspect_ratio
-        self.primary_dimensions = primary_dimension
+        self.primary_dimension = primary_dimension
         self.add_modifier(modifiers.ResizeModifier(self.im_width, self.im_height, self.maintain_aspect_ratio, primary_dimension=self.primary_dimension))
 
     def set_color(self, value):
@@ -231,7 +231,7 @@ class GUI:
 
     def image_resize(self):
         width, height = self.image.width(), self.image.height()
-        dialog = ResizeImageDialog(width, height)
+        dialog = ResizeImageDialog(width, height, maintain_aspect_ratio=self.batch.maintain_aspect_ratio, primary_dimension=self.batch.primary_dimension)
         dialog.on_change = [self.batch.set_image_size, self.update_preview]
         dialog.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         dialog.on_confirm = [self.batch.confirm_modifier]

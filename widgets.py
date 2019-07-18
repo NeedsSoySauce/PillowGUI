@@ -137,6 +137,8 @@ class ResizeImageDialog(CustomDialog):
     def __init__(self, width, height, maintain_aspect_ratio=False, primary_dimension='width', title="Resize", on_change=list(), on_cancel=list(), on_confirm=list()):
         self.init_width = width
         self.init_height = height
+        self.init_maintain_aspect_ratio = maintain_aspect_ratio
+        self.init_primary_dimension = primary_dimension
         self.on_change = on_change
         self.on_confirm = on_confirm
         self.on_cancel = on_cancel
@@ -203,8 +205,21 @@ class ResizeImageDialog(CustomDialog):
         self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
         self.set_mode()
 
+    def set_resize_width_without_trace(self, value):
+        if not isinstance(value, int):
+            raise TypeError('height should be an int')
+        self.resize_width.trace_vdelete("w", self.resize_width_trace_id)
+        self.resize_width.set(value)
+        self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
+
+    def set_resize_height_without_trace(self, value):
+        if not isinstance(value, int):
+            raise TypeError('width should be an int')
+        self.resize_height.trace_vdelete("w", self.resize_height_trace_id)
+        self.resize_height.set(value)
+        self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+
     def on_update(self, *args):
-        print(args)
         mode = self.resize_mode.get()
         for callback in self.on_change:
             if mode == 'percentage':
@@ -219,22 +234,21 @@ class ResizeImageDialog(CustomDialog):
     def on_width_change(self, *args):
         self.primary_dimension.set('width')
         if self.maintain_aspect_ratio.get():
-            self.resize_height.trace_vdelete("w", self.resize_height_trace_id)
-            self.resize_height.set(round(self.init_height * (self.resize_width.get() / self.init_width)))
-            self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+            self.set_resize_height_without_trace(round(self.init_height * (self.resize_width.get() / self.init_width)))
         self.on_update()
 
     def on_height_chagne(self, *args):
         self.primary_dimension.set('height')
         if self.maintain_aspect_ratio.get():
-            self.resize_width.trace_vdelete("w", self.resize_width_trace_id)
-            self.resize_width.set(round(self.init_width * (self.resize_height.get() / self.init_height)))
-            self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
+            self.set_resize_width_without_trace(round(self.init_width * (self.resize_height.get() / self.init_height)))
         self.on_update()
 
     def reset(self):
-        self.width = self.init_width
-        self.height = self.init_height
+        self.resize_percentage.set(100.0)
+        self.set_resize_width_without_trace(self.init_width)
+        self.set_resize_height_without_trace(self.init_height)
+        self.maintain_aspect_ratio.set(self.init_maintain_aspect_ratio)
+        self.primary_dimension.set(self.init_primary_dimension)
         self.on_update()
 
     def set_mode(self):
@@ -267,11 +281,11 @@ class ResizeImageDialog(CustomDialog):
     def ratio_change(self):
         if self.maintain_aspect_ratio.get():
             if self.primary_dimension.get() == 'width':
-                self.resize_width.trace_vdelete("w", self.resize_width_trace_id)
-                self.resize_width.set(round(self.init_width * (self.resize_height.get() / self.init_height)))
-                self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
+                self.set_resize_height_without_trace(round(self.init_height * (self.resize_width.get() / self.init_width)))
             else:
-                self.resize_height.trace_vdelete("w", self.resize_height_trace_id)
-                self.resize_height.set(round(self.init_height * (self.resize_width.get() / self.init_width)))
-                self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
-        self.on_update()
+                self.set_resize_width_without_trace(round(self.init_width * (self.resize_height.get() / self.init_height)))             
+            self.on_update()
+        print(self.maintain_aspect_ratio.get())
+        
+        print('w', self.resize_width.get())
+        print('h', self.resize_height.get())
