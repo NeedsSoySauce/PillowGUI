@@ -4,7 +4,7 @@ from tkinter.filedialog import askopenfilenames, askdirectory
 import modifiers
 from os import path
 from glob import glob
-from widgets import FilePane, SliderDialog
+from widgets import FilePane, SliderDialog, ResizeImageDialog
 
 # https://pillow.readthedocs.io/en/5.1.x/handbook/image-file-formats.html#fully-supported-formats
 SUPPORTED_FILE_EXTENSIONS = (
@@ -32,6 +32,10 @@ class ImageBatch:
         self.modifiers = [] # What modifiers to apply in the order they should be applied
         self.confirmed_mod_count = 0 # Records the number of confirmed modifiers
         self.save_dest = "" # If None we overwrite the original images (TBD)
+        self.im_width = 1.0
+        self.im_height = 1.0
+        self.maintain_aspect_ratio = True
+        self.primary_dimension = 'width'
         self.color = 1.0
         self.contrast = 1.0
         self.brightness = 1.0
@@ -82,33 +86,28 @@ class ImageBatch:
         except IndexError:
             self.modifiers.append(modifier)
 
-    def add_color_modifier(self):
-        self.add_modifier(modifiers.ColorModifier(self.color))
-
-    def add_contrast_modifier(self):
-        self.add_modifier(modifiers.ContrastModifier(self.contrast))
-
-    def add_brightness_modifier(self):
-        self.add_modifier(modifiers.BrightnessModifier(self.brightness))
-
-    def add_sharpness_modifier(self):
-        self.add_modifier(modifiers.SharpnessModifier(self.sharpness))
+    def set_image_size(self, width, height, maintain_aspect_ratio, primary_dimension='width'):
+        self.im_width = width
+        self.im_height = height
+        self.maintain_aspect_ratio = maintain_aspect_ratio
+        self.primary_dimensions = primary_dimension
+        self.add_modifier(modifiers.ResizeModifier(self.im_width, self.im_height, self.maintain_aspect_ratio, primary_dimension=self.primary_dimension))
 
     def set_color(self, value):
         self.color = float(value)
-        self.add_color_modifier()
+        self.add_modifier(modifiers.ColorModifier(self.color))
 
     def set_contrast(self, value):
         self.contrast = float(value)
-        self.add_contrast_modifier()
+        self.add_modifier(modifiers.ContrastModifier(self.contrast))
 
     def set_brightness(self, value):
         self.brightness = float(value)
-        self.add_brightness_modifier()
+        self.add_modifier(modifiers.BrightnessModifier(self.brightness))
 
     def set_sharpness(self, value):
         self.sharpness = float(value)
-        self.add_sharpness_modifier()
+        self.add_modifier(modifiers.SharpnessModifier(self.sharpness))
 
     def get_tk_image(self, filename):
         return ImageTk.PhotoImage(self.get_processed_image(filename))
@@ -135,6 +134,10 @@ class GUI:
         self.filemenu.add_separator()
         self.filemenu.add_command(label="Exit", command=self.root.quit)
         self.menubar.add_cascade(label="File", menu=self.filemenu)
+
+        self.imagemenu = Menu(self.menubar, tearoff=0)
+        self.imagemenu.add_command(label="Resize", command=self.image_resize)
+        self.menubar.add_cascade(label="Image", menu=self.imagemenu)
 
         self.adjustmentsmenu = Menu(self.menubar, tearoff=0)
         self.adjustmentsmenu.add_command(label="Color", command=self.adjust_color)
@@ -182,10 +185,12 @@ class GUI:
         self.root.mainloop()
 
     def enable_editing(self):
+        self.menubar.entryconfig("Image", state="normal")
         self.menubar.entryconfig("Adjustments", state="normal")
         self.menubar.entryconfig("Run", state="normal")
 
     def disable_editing(self):
+        self.menubar.entryconfig("Image", state="disabled")
         self.menubar.entryconfig("Adjustments", state="disabled")
         self.menubar.entryconfig("Run", state="disabled")
 
@@ -224,28 +229,35 @@ class GUI:
         self.canvas.configure(width=image_size[0], height=image_size[1])
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+    def image_resize(self):
+        width, height = self.image.width(), self.image.height()
+        dialog = ResizeImageDialog(width, height)
+        dialog.on_change = [self.batch.set_image_size, self.update_preview]
+        dialog.on_cancel = [self.batch.cancel_modifier, self.update_preview]
+        dialog.on_confirm = [self.batch.confirm_modifier]
+
     def adjust_color(self):
         slider = SliderDialog('Adjust Color', self.batch.color, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_color, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_contrast(self):
         slider = SliderDialog('Adjust Contrast', self.batch.contrast, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_contrast, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_brightness(self):
         slider = SliderDialog('Adjust Brightness', self.batch.brightness, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_brightness, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_sharpness(self):
         slider = SliderDialog('Adjust Sharpness', self.batch.sharpness, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_sharpness, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier]
+        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
 

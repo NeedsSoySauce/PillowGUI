@@ -1,5 +1,5 @@
 from PIL import Image, ImageEnhance, ImageTk
-from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END
+from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END, Checkbutton, Radiobutton, StringVar, IntVar, Entry, Spinbox
 from tkinter.filedialog import askopenfilenames, askdirectory
 import modifiers
 from os import path
@@ -69,8 +69,28 @@ class FilePane:
             for callback in self.on_selection:
                 callback(self.selected_item())
 
+class CustomDialog:
+    def __init__(self, on_change=list(), on_cancel=list(), on_confirm=list()):
+        self.on_change = on_change
+        self.on_confirm = on_confirm
+        self.on_cancel = on_cancel
+        self.window = Toplevel()
 
-class SliderDialog:
+    def on_update(self, value):
+        for callback in self.on_change:
+            callback(value)
+
+    def cancel(self):
+        for callback in self.on_cancel:
+            callback()
+        self.window.destroy()
+
+    def confirm(self):
+        for callback in self.on_confirm:
+            callback()
+        self.window.destroy()
+
+class SliderDialog(CustomDialog):
     def __init__(self, title="Slider Dialog", init_val=0, min_val=-1, max_val=1, default_val=0, on_change=list(), resolution=1, on_confirm=list(), on_cancel=list()):
         self.init_val = init_val
         self.default_val = default_val
@@ -112,3 +132,146 @@ class SliderDialog:
         for callback in self.on_confirm:
             callback()
         self.window.destroy()
+
+class ResizeImageDialog(CustomDialog):
+    def __init__(self, width, height, maintain_aspect_ratio=False, primary_dimension='width', title="Resize", on_change=list(), on_cancel=list(), on_confirm=list()):
+        self.init_width = width
+        self.init_height = height
+        self.on_change = on_change
+        self.on_confirm = on_confirm
+        self.on_cancel = on_cancel
+
+        self.window = Toplevel()
+        self.window.title(title)
+        self.window.grab_set()
+
+        self.primary_dimension = StringVar()
+        self.primary_dimension.set(primary_dimension)
+
+        self.resize_mode = StringVar()
+        self.resize_mode.set('percentage')
+
+        self.resize_percentage = IntVar()
+        self.resize_percentage.set(100.0)
+
+        self.resize_width = IntVar()
+        self.resize_width.set(width)
+        self.resize_height = IntVar()
+        self.resize_height.set(height)
+
+        self.maintain_aspect_ratio = IntVar()
+
+        # See https://stackoverflow.com/a/4140988/11628429
+        self.vcmd_is_float = (self.window.register(self.is_float), '%P')
+        self.vcmd_is_int = (self.window.register(self.is_int), '%P')
+
+        self.percentage_radiobutton = Radiobutton(self.window, text='By percentage', value='percentage', variable=self.resize_mode, command=self.set_mode)
+        self.percentage_radiobutton.grid(row=0, column=0)
+
+        self.percentage_entry = Spinbox(self.window, from_=0, to=float('inf'), textvariable=self.resize_percentage, validate='all', validatecommand=self.vcmd_is_float)
+        self.percentage_entry.grid(row=0, column=1)
+
+        self.absolute_radiobutton = Radiobutton(self.window, text='By absolute value', value='absolute', variable=self.resize_mode, command=self.set_mode)
+        self.absolute_radiobutton.grid(row=2, column=0)
+
+        self.ratio_checkbox = Checkbutton(self.window, text='Maintain aspect ratio', variable=self.maintain_aspect_ratio, command=self.ratio_change)
+        self.ratio_checkbox.grid(row=3, column=0)
+
+        self.width_label = Label(self.window, text='Width')
+        self.width_label.grid(row=5, column=0)
+
+        self.width_entry = Spinbox(self.window, from_=0, to=float('inf'), textvariable=self.resize_width, validate='all', validatecommand=self.vcmd_is_int) # needs a command to respect aspect ratio on change
+        self.width_entry.grid(row=5, column=1)
+
+        self.height_label = Label(self.window, text='Height')
+        self.height_label.grid(row=6, column=0)
+
+        self.height_entry = Spinbox(self.window, from_=0, to=float('inf'), textvariable=self.resize_height, validate='all', validatecommand=self.vcmd_is_int)
+        self.height_entry.grid(row=6, column=1)
+
+        self.cancel_button = Button(self.window, text='Cancel', command=self.cancel)
+        self.cancel_button.grid(row=7, column=0)
+
+        self.reset_button = Button(self.window, text='Reset', command=self.reset)
+        self.reset_button.grid(row=7, column=1)
+
+        self.confirm_button = Button(self.window, text='Confirm', command=self.confirm)
+        self.confirm_button.grid(row=7, column=2)
+
+        self.resize_percentage.trace('w', self.on_percentage_change)
+        self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
+        self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+        self.set_mode()
+
+    def on_update(self, *args):
+        print(args)
+        mode = self.resize_mode.get()
+        for callback in self.on_change:
+            if mode == 'percentage':
+                percentage = self.resize_percentage.get() / 100
+                callback(percentage, percentage, self.maintain_aspect_ratio.get(), self.primary_dimension.get())
+            else:
+                callback(self.resize_width.get(), self.resize_height.get(), self.maintain_aspect_ratio.get(), self.primary_dimension.get())
+
+    def on_percentage_change(self, *args):
+        self.on_update()
+
+    def on_width_change(self, *args):
+        self.primary_dimension.set('width')
+        if self.maintain_aspect_ratio.get():
+            self.resize_height.trace_vdelete("w", self.resize_height_trace_id)
+            self.resize_height.set(round(self.init_height * (self.resize_width.get() / self.init_width)))
+            self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+        self.on_update()
+
+    def on_height_chagne(self, *args):
+        self.primary_dimension.set('height')
+        if self.maintain_aspect_ratio.get():
+            self.resize_width.trace_vdelete("w", self.resize_width_trace_id)
+            self.resize_width.set(round(self.init_width * (self.resize_height.get() / self.init_height)))
+            self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
+        self.on_update()
+
+    def reset(self):
+        self.width = self.init_width
+        self.height = self.init_height
+        self.on_update()
+
+    def set_mode(self):
+        mode = self.resize_mode.get()
+        if mode == 'percentage':
+            self.percentage_entry.config(state='normal')
+            self.ratio_checkbox.config(state='disabled')
+            self.width_label.config(state='disabled')
+            self.width_entry.config(state='disabled')
+            self.height_label.config(state='disabled')
+            self.height_entry.config(state='disabled')
+        else:
+            self.percentage_entry.config(state='disabled')
+            self.ratio_checkbox.config(state='normal')
+            self.width_label.config(state='normal')
+            self.width_entry.config(state='normal')
+            self.height_label.config(state='normal')
+            self.height_entry.config(state='normal')
+
+    def is_float(self, P):
+        try:
+            float(P)
+            return True
+        except ValueError:
+            return False
+
+    def is_int(self, P):
+        return str.isdecimal(P)
+
+    def ratio_change(self):
+        if self.maintain_aspect_ratio.get():
+            if self.primary_dimension.get() == 'width':
+                self.resize_width.trace_vdelete("w", self.resize_width_trace_id)
+                self.resize_width.set(round(self.init_width * (self.resize_height.get() / self.init_height)))
+                self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
+            else:
+                self.resize_height.trace_vdelete("w", self.resize_height_trace_id)
+                self.resize_height.set(round(self.init_height * (self.resize_width.get() / self.init_width)))
+                self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+        self.on_update()

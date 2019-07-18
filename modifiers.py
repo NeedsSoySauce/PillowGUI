@@ -41,3 +41,31 @@ class SharpnessModifier(ImageModifier):
 
     def apply(self, image):
         return ImageEnhance.Sharpness(image).enhance(self.value)
+
+class ResizeModifier(ImageModifier):
+    def __init__(self, width, height, maintain_aspect_ratio, primary_dimension='width'):
+
+        if type(width) != type(height):
+            raise TypeError('width and height must be the same type (float or int)')
+
+        self.width = width
+        self.height = height
+        self.maintain_aspect_ratio = maintain_aspect_ratio
+        self.primary_dimension = primary_dimension
+
+    def apply(self, image):
+        im_width, im_height = image.width, image.height
+
+        if isinstance(self.width, float) and isinstance(self.height, float):
+            self.width = round(self.width * im_width)
+            self.height = round(self.height * im_height)
+
+        elif self.maintain_aspect_ratio:
+            if self.primary_dimension == 'width':
+                ratio = round(im_height / im_width)
+                self.height = self.width * ratio
+            else:
+                ratio = round(im_width / im_height)
+                self.width = self.height * ratio
+
+        return image.resize((self.width, self.height))
