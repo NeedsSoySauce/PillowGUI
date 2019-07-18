@@ -1,5 +1,5 @@
 from PIL import Image, ImageEnhance, ImageTk
-from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END, Checkbutton, Radiobutton, StringVar, IntVar, Entry, Spinbox
+from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END, Checkbutton, Radiobutton, StringVar, IntVar, Entry, Spinbox, OptionMenu
 from tkinter.filedialog import askopenfilenames, askdirectory
 import modifiers
 from os import path
@@ -91,7 +91,7 @@ class CustomDialog:
         self.window.destroy()
 
 class SliderDialog(CustomDialog):
-    def __init__(self, title="Slider Dialog", init_val=0, min_val=-1, max_val=1, default_val=0, on_change=list(), resolution=1, on_confirm=list(), on_cancel=list()):
+    def __init__(self, root, title="Slider Dialog", init_val=0, min_val=-1, max_val=1, default_val=0, on_change=list(), resolution=1, on_confirm=list(), on_cancel=list()):
         self.init_val = init_val
         self.default_val = default_val
         self.on_change = on_change
@@ -100,6 +100,7 @@ class SliderDialog(CustomDialog):
 
         self.window = Toplevel()
         self.window.title(title)
+        self.window.transient(root)
         self.window.grab_set()
 
         self.scale = Scale(self.window, orient='horizontal', from_=min_val, to=max_val, command=self.on_update, resolution=resolution)
@@ -134,7 +135,7 @@ class SliderDialog(CustomDialog):
         self.window.destroy()
 
 class ResizeImageDialog(CustomDialog):
-    def __init__(self, width, height, maintain_aspect_ratio=False, primary_dimension='width', title="Resize", on_change=list(), on_cancel=list(), on_confirm=list()):
+    def __init__(self, root, width, height, maintain_aspect_ratio=False, primary_dimension='width', title="Resize", on_change=list(), on_cancel=list(), on_confirm=list(), **kwargs):
         self.init_width = width
         self.init_height = height
         self.init_maintain_aspect_ratio = maintain_aspect_ratio
@@ -145,6 +146,7 @@ class ResizeImageDialog(CustomDialog):
 
         self.window = Toplevel()
         self.window.title(title)
+        self.window.transient(root)
         self.window.grab_set()
 
         self.primary_dimension = StringVar()
@@ -192,13 +194,13 @@ class ResizeImageDialog(CustomDialog):
         self.height_entry.grid(row=6, column=1)
 
         self.cancel_button = Button(self.window, text='Cancel', command=self.cancel)
-        self.cancel_button.grid(row=7, column=0)
+        self.cancel_button.grid(row=9, column=0)
 
         self.reset_button = Button(self.window, text='Reset', command=self.reset)
-        self.reset_button.grid(row=7, column=1)
+        self.reset_button.grid(row=9, column=1)
 
         self.confirm_button = Button(self.window, text='Confirm', command=self.confirm)
-        self.confirm_button.grid(row=7, column=2)
+        self.confirm_button.grid(row=9, column=2)
 
         self.resize_percentage.trace('w', self.on_percentage_change)
         self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
@@ -289,3 +291,29 @@ class ResizeImageDialog(CustomDialog):
         
         print('w', self.resize_width.get())
         print('h', self.resize_height.get())
+
+class CropImageDialog(ResizeImageDialog):
+    def __init__(self, *args, **kwargs):
+        kwargs['title'] = 'Crop'
+        super().__init__(*args, **kwargs)
+
+        anchors = ['Top Left', 'Top', 'Top Right', 'Left', 'Middle', 'Right', 'Bottom Left', 'Bottom', 'Bottom Right']
+        self.anchor = StringVar()
+        self.anchor.set(anchors[0])
+
+        self.anchor_label = Label(self.window, text='Anchor')
+        self.anchor_label.grid(row=8, column=0)
+
+        self.anchor_option_menu = OptionMenu(self.window, self.anchor, anchors[0], *anchors[1:])
+        self.anchor_option_menu.grid(row=8, column=1)
+
+        self.anchor.trace('w', self.on_update)
+
+    def on_update(self, *args):
+        mode = self.resize_mode.get()
+        for callback in self.on_change:
+            if mode == 'percentage':
+                percentage = self.resize_percentage.get() / 100
+                callback(percentage, percentage, self.maintain_aspect_ratio.get(), self.primary_dimension.get(), self.anchor.get())
+            else:
+                callback(self.resize_width.get(), self.resize_height.get(), self.maintain_aspect_ratio.get(), self.primary_dimension.get(), self.anchor.get())

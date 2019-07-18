@@ -4,7 +4,7 @@ from tkinter.filedialog import askopenfilenames, askdirectory
 import modifiers
 from os import path
 from glob import glob
-from widgets import FilePane, SliderDialog, ResizeImageDialog
+from widgets import FilePane, SliderDialog, ResizeImageDialog, CropImageDialog
 
 # https://pillow.readthedocs.io/en/5.1.x/handbook/image-file-formats.html#fully-supported-formats
 SUPPORTED_FILE_EXTENSIONS = (
@@ -36,6 +36,7 @@ class ImageBatch:
         self.im_height = 1.0
         self.maintain_aspect_ratio = True
         self.primary_dimension = 'width'
+        self.anchor = 'Top'
         self.color = 1.0
         self.contrast = 1.0
         self.brightness = 1.0
@@ -93,6 +94,15 @@ class ImageBatch:
         self.primary_dimension = primary_dimension
         self.add_modifier(modifiers.ResizeModifier(self.im_width, self.im_height, self.maintain_aspect_ratio, primary_dimension=self.primary_dimension))
 
+    def set_image_crop(self, width, height, maintain_aspect_ratio, primary_dimension='width', anchor='Top'):
+        self.im_width = width
+        self.im_height = height
+        self.maintain_aspect_ratio = maintain_aspect_ratio
+        self.primary_dimension = primary_dimension
+        self.anchor = anchor
+        modifier = modifiers.CropModifier(self.im_width, self.im_height, self.maintain_aspect_ratio, primary_dimension=self.primary_dimension, anchor=self.anchor)
+        self.add_modifier(modifier)
+
     def set_color(self, value):
         self.color = float(value)
         self.add_modifier(modifiers.ColorModifier(self.color))
@@ -137,6 +147,7 @@ class GUI:
 
         self.imagemenu = Menu(self.menubar, tearoff=0)
         self.imagemenu.add_command(label="Resize", command=self.image_resize)
+        self.imagemenu.add_command(label="Crop", command=self.image_crop)
         self.menubar.add_cascade(label="Image", menu=self.imagemenu)
 
         self.adjustmentsmenu = Menu(self.menubar, tearoff=0)
@@ -231,31 +242,38 @@ class GUI:
 
     def image_resize(self):
         width, height = self.image.width(), self.image.height()
-        dialog = ResizeImageDialog(width, height, maintain_aspect_ratio=self.batch.maintain_aspect_ratio, primary_dimension=self.batch.primary_dimension)
+        dialog = ResizeImageDialog(self.root, width, height, maintain_aspect_ratio=self.batch.maintain_aspect_ratio, primary_dimension=self.batch.primary_dimension)
         dialog.on_change = [self.batch.set_image_size, self.update_preview]
         dialog.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         dialog.on_confirm = [self.batch.confirm_modifier]
 
+    def image_crop(self):
+        width, height = self.image.width(), self.image.height()
+        dialog = CropImageDialog(self.root, width, height, maintain_aspect_ratio=self.batch.maintain_aspect_ratio, primary_dimension=self.batch.primary_dimension, anchor=self.batch.anchor)
+        dialog.on_change = [self.batch.set_image_crop, self.update_preview]
+        dialog.on_cancel = [self.batch.cancel_modifier, self.update_preview]
+        dialog.on_confirm = [self.batch.confirm_modifier]
+
     def adjust_color(self):
-        slider = SliderDialog('Adjust Color', self.batch.color, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Color', self.batch.color, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_color, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_contrast(self):
-        slider = SliderDialog('Adjust Contrast', self.batch.contrast, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Contrast', self.batch.contrast, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_contrast, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_brightness(self):
-        slider = SliderDialog('Adjust Brightness', self.batch.brightness, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Brightness', self.batch.brightness, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_brightness, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
 
     def adjust_sharpness(self):
-        slider = SliderDialog('Adjust Sharpness', self.batch.sharpness, 0, 2.0, 1.0, resolution=0.01)
+        slider = SliderDialog(self.root, 'Adjust Sharpness', self.batch.sharpness, 0, 2.0, 1.0, resolution=0.01)
         slider.on_change = [self.batch.set_sharpness, self.update_preview]
         slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
         slider.on_confirm = [self.batch.confirm_modifier]
