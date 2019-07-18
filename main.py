@@ -1,5 +1,5 @@
 from PIL import Image, ImageEnhance, ImageTk
-from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END
+from tkinter import Tk, Menu, Button, Label, Listbox, Canvas, Scrollbar, Toplevel, Scale, END, BooleanVar
 from tkinter.filedialog import askopenfilenames, askdirectory
 import modifiers
 from os import path
@@ -76,6 +76,9 @@ class ImageBatch:
             outfile = f'{self.save_dest}/{path.split(filename)[1]}'
             processed_im.save(outfile)
 
+    def get_tk_image(self, filename):
+        return ImageTk.PhotoImage(self.get_processed_image(filename))
+
     def confirm_modifier(self):
         self.confirmed_mod_count += 1
 
@@ -123,8 +126,6 @@ class ImageBatch:
         self.sharpness = float(value)
         self.add_modifier(modifiers.SharpnessModifier(self.sharpness))
 
-    def get_tk_image(self, filename):
-        return ImageTk.PhotoImage(self.get_processed_image(filename))
 
 class GUI:
     def __init__(self):
@@ -134,6 +135,9 @@ class GUI:
         self.root.geometry("800x600")
         self.files_selected = False
         self.preview_filename = ""
+
+        self.filepane_open = BooleanVar(value=True)
+        self.filepane = FilePane(self.root, on_selection=[self.set_preview], on_close=[self.on_filepane_close])
 
         self.batch = ImageBatch()
 
@@ -160,6 +164,11 @@ class GUI:
         self.adjustmentsmenu.add_command(label="Brightness", command=self.adjust_brightness)
         self.adjustmentsmenu.add_command(label="Sharpness", command=self.adjust_sharpness)
         self.menubar.add_cascade(label="Adjustments", menu=self.adjustmentsmenu)
+
+        self.viewmenu = Menu(self.menubar, tearoff=0)
+        self.viewmenu.add_checkbutton(label="Files", onvalue=True, offvalue=False, variable=self.filepane_open, command=self.toggle_filepane)
+        # self.viewmenu.add_command(label="Files", command=self.adjust_color)
+        self.menubar.add_cascade(label="View", menu=self.viewmenu)
 
         # effectsmenu = Menu(menubar, tearoff=0)
         # effectsmenu.add_command(label="Cut", command=hello)
@@ -193,11 +202,18 @@ class GUI:
         self.sbarV.grid(row=0, column=1, sticky="ns")
         self.sbarH.grid(row=1, column=0, sticky="ew")
 
-        self.filepane = FilePane(self.root, on_selection=[self.set_preview])
-
         self.disable_editing()
 
         self.root.mainloop()
+
+    def toggle_filepane(self):
+        if self.filepane_open.get():
+            self.filepane = FilePane(self.root, on_selection=[self.set_preview], on_close=[self.on_filepane_close])
+        else:
+            self.filepane.close()
+
+    def on_filepane_close(self):
+        self.filepane_open.set(False)
 
     def enable_editing(self):
         self.menubar.entryconfig("Image", state="normal")
@@ -244,50 +260,38 @@ class GUI:
         self.canvas.configure(width=image_size[0], height=image_size[1])
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+    def setup_dialog(self, dialog, setter):
+        dialog.on_change += [setter, self.update_preview]
+        dialog.on_cancel += [self.batch.cancel_modifier, self.update_preview]
+        dialog.on_confirm += [self.batch.confirm_modifier]
+
     def image_resize(self):
         width, height = self.image.width(), self.image.height()
         dialog = ResizeImageDialog(self.root, width, height, maintain_aspect_ratio=self.batch.maintain_aspect_ratio, primary_dimension=self.batch.primary_dimension)
-        dialog.on_change = [self.batch.set_image_size, self.update_preview]
-        dialog.on_cancel = [self.batch.cancel_modifier, self.update_preview]
-        dialog.on_confirm = [self.batch.confirm_modifier]
+        self.setup_dialog(dialog, self.batch.set_image_size)
 
     def image_crop(self):
         width, height = self.image.width(), self.image.height()
         dialog = CropImageDialog(self.root, width, height, maintain_aspect_ratio=self.batch.maintain_aspect_ratio, primary_dimension=self.batch.primary_dimension, anchor=self.batch.anchor)
-        dialog.on_change = [self.batch.set_image_crop, self.update_preview]
-        dialog.on_cancel = [self.batch.cancel_modifier, self.update_preview]
-        dialog.on_confirm = [self.batch.confirm_modifier]
+        self.setup_dialog(dialog, self.batch.set_image_crop)
 
     def adjust_color(self):
-        slider = SliderDialog(self.root, 'Adjust Color', self.batch.color, 0, 10.0, 1.0, resolution=0.01)
-        slider.on_change = [self.batch.set_color, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
-        slider.on_confirm = [self.batch.confirm_modifier]
+        dialog = SliderDialog(self.root, 'Adjust Color', self.batch.color, 0, 10.0, 1.0, resolution=0.01)
+        self.setup_dialog(dialog, self.batch.set_color)
 
     def adjust_contrast(self):
-        slider = SliderDialog(self.root, 'Adjust Contrast', self.batch.contrast, 0, 10.0, 1.0, resolution=0.01)
-        slider.on_change = [self.batch.set_contrast, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
-        slider.on_confirm = [self.batch.confirm_modifier]
+        dialog = SliderDialog(self.root, 'Adjust Contrast', self.batch.contrast, 0, 10.0, 1.0, resolution=0.01)
+        self.setup_dialog(dialog, self.batch.set_contrast)
 
     def adjust_brightness(self):
-        slider = SliderDialog(self.root, 'Adjust Brightness', self.batch.brightness, 0, 10.0, 1.0, resolution=0.01)
-        slider.on_change = [self.batch.set_brightness, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
-        slider.on_confirm = [self.batch.confirm_modifier]
+        dialog = SliderDialog(self.root, 'Adjust Brightness', self.batch.brightness, 0, 10.0, 1.0, resolution=0.01)
+        self.setup_dialog(dialog, self.batch.set_brightness)
 
     def adjust_sharpness(self):
-        slider = SliderDialog(self.root, 'Adjust Sharpness', self.batch.sharpness, -10.0, 10.0, 1.0, resolution=0.01)
-        slider.on_change = [self.batch.set_sharpness, self.update_preview]
-        slider.on_cancel = [self.batch.cancel_modifier, self.update_preview]
-        slider.on_confirm = [self.batch.confirm_modifier]
+        dialog = SliderDialog(self.root, 'Adjust Sharpness', self.batch.sharpness, -10.0, 10.0, 1.0, resolution=0.01)
+        self.setup_dialog(dialog, self.batch.set_sharpness)
 
-
-
-def hello():
-    print('TBD')
 
 if __name__ == "__main__":
-
     root = GUI()
 

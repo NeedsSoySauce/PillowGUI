@@ -6,14 +6,16 @@ from os import path
 from glob import glob
 
 class FilePane:
-    def __init__(self, root, items=list(), on_selection=None):
+    def __init__(self, root, items=list(), on_selection=list(), on_close=list()):
         self.items = items
         self.item_count = len(items)
         self.on_selection = on_selection
+        self.on_close = on_close
 
         self.window = Toplevel()
         self.window.title('Files')
         self.window.transient(root)
+        self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
 
         self.menubar = Menu(self.window)
         self.menubar.add_command(label='Previous', command=self.previous)
@@ -30,6 +32,14 @@ class FilePane:
         self.listbox.pack(side='left', fill='both', expand=1)
 
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
+
+    def on_window_close(self):
+        for callback in self.on_close:
+            callback()
+        self.window.destroy()
+
+    def close(self):
+        self.window.destroy()
 
     def selected_item(self):
         return self.items[self.listbox.curselection()[0]]
