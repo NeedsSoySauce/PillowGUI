@@ -217,7 +217,7 @@ class ResizeImageDialog(CustomDialog):
 
         self.resize_percentage.trace('w', self.on_percentage_change)
         self.resize_width_trace_id = self.resize_width.trace('w', self.on_width_change)
-        self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+        self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_change)
         self.set_mode()
 
     def set_resize_width_without_trace(self, value):
@@ -232,7 +232,7 @@ class ResizeImageDialog(CustomDialog):
             raise TypeError('width should be an int')
         self.resize_height.trace_vdelete("w", self.resize_height_trace_id)
         self.resize_height.set(value)
-        self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_chagne)
+        self.resize_height_trace_id = self.resize_height.trace('w', self.on_height_change)
 
     def on_update(self, *args):
         mode = self.resize_mode.get()
@@ -252,7 +252,7 @@ class ResizeImageDialog(CustomDialog):
             self.set_resize_height_without_trace(round(self.init_height * (self.resize_width.get() / self.init_width)))
         self.on_update()
 
-    def on_height_chagne(self, *args):
+    def on_height_change(self, *args):
         self.primary_dimension.set('height')
         if self.maintain_aspect_ratio.get():
             self.set_resize_width_without_trace(round(self.init_width * (self.resize_height.get() / self.init_height)))

@@ -99,9 +99,16 @@ class CropModifier(ImageModifier):
                 ratio = im_width / im_height
                 width = round(height * ratio)
 
+
         x_crop = im_width - width
         y_crop = im_height - height
-        print(x_crop, y_crop)
+
+        if width > im_width:
+            x_crop = 0
+
+        if height > im_height:
+            y_crop = 0
+
         if self.anchor == 'Top Left':
             left_x = 0
             left_y = 0
