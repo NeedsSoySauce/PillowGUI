@@ -36,10 +36,13 @@ class FilePane:
     def on_window_close(self):
         for callback in self.on_close:
             callback()
-        self.window.destroy()
+        self.window.withdraw()
 
-    def close(self):
-        self.window.destroy()
+    def hide(self):
+        self.window.withdraw()
+
+    def show(self):
+        self.window.deiconify()
 
     def selected_item(self):
         return self.items[self.listbox.curselection()[0]]

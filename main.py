@@ -208,9 +208,9 @@ class GUI:
 
     def toggle_filepane(self):
         if self.filepane_open.get():
-            self.filepane = FilePane(self.root, on_selection=[self.set_preview], on_close=[self.on_filepane_close])
+            self.filepane.show()
         else:
-            self.filepane.close()
+            self.filepane.hide()
 
     def on_filepane_close(self):
         self.filepane_open.set(False)
@@ -247,7 +247,6 @@ class GUI:
 
     def select_save_dest(self):
         self.batch.select_save_dest()
-        self.update_preview()
 
     def set_preview(self, filename):
         self.preview_filename = filename
